@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 
 export function Timer() {
-  const [seconds, setSeconds] = useState(25 * 60);
+  const [seconds, setSeconds] = useState(2);
   const [isRunning, setIsRunning] = useState(false);
   const [showTimeInput, setShowTimeInput] = useState(false);
   const [inputMinutes, setInputMinutes] = useState(25);
@@ -18,27 +18,41 @@ export function Timer() {
     }
   };
 
-  const handleStartEnd = () => {
-    if (!isRunning){
-      setIsRunning(!isRunning);
+  const handleStart = () => {
+    if (!isRunning) {
+      setIsRunning(true);
       setStartSession(new Date());
     }
-    else{
-      setIsRunning(!isRunning);
-      const session = {
-        startTime: startSession,
-        endTime: new Date(),
-        duration: formatTime(Math.round((new Date().getTime() - startSession.getTime()) / 1000))
-      };
-      setSessions((prev) => {
-        return [...prev, session];
-      });
+  };
+
+  const handleEnd = () => {
+    if (!startSession || !isRunning) {
+      return;
     }
-  }
+    setIsRunning(false);
+    const session = {
+      startTime: startSession,
+      endTime: new Date(),
+      duration: formatTime(
+        Math.round((new Date().getTime() - startSession.getTime()) / 1000),
+      ),
+    };
+    setSessions((prev) => {
+      return [...prev, session];
+    });
+  };
+
+  const handleStartEnd = () => {
+    if (!isRunning) {
+      handleStart();
+    } else {
+      handleEnd();
+    }
+  };
 
   useEffect(() => {
     console.log(sessions);
-  }, [sessions])
+  }, [sessions]);
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -47,14 +61,13 @@ export function Timer() {
     return `${mins} : ${secs < 10 ? "0" : ""}${secs}`;
   };
 
-  const startPauseLabel = function(){
-    if (isRunning){
+  const startPauseLabel = function () {
+    if (isRunning) {
       return "Pause";
-    }
-    else{
+    } else {
       return "Start";
     }
-  }
+  };
 
   useEffect(() => {
     if (!isRunning) {
@@ -64,7 +77,6 @@ export function Timer() {
     const interval = setInterval(() => {
       setSeconds((s) => {
         if (s <= 1) {
-          setIsRunning(false);
           return 0;
         }
         return s - 1;
@@ -76,6 +88,11 @@ export function Timer() {
     };
   }, [isRunning]);
 
+  useEffect(() => {
+    if (seconds === 0 && isRunning) {
+      handleEnd();
+    }
+  }, [seconds, isRunning]);
 
   return (
     <>
@@ -92,14 +109,11 @@ export function Timer() {
         {formatTime(seconds)}
       </div>
       <div>
-        <button
-          onClick={handleStartEnd}
-        >
-          {startPauseLabel()}
-        </button>
+        <button onClick={handleStartEnd}>{startPauseLabel()}</button>
         <button
           onClick={() => {
             setIsRunning(false);
+            setStartSession(null);
             setSeconds(inputMinutes * 60 + inputSeconds);
           }}
         >
