@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 
-export function Timer() {
+export function Timer({ sessions, setSessions }) {
   const [seconds, setSeconds] = useState(2);
   const [isRunning, setIsRunning] = useState(false);
   const [showTimeInput, setShowTimeInput] = useState(false);
   const [inputMinutes, setInputMinutes] = useState(25);
   const [inputSeconds, setInputSeconds] = useState(0);
-  const [sessions, setSessions] = useState([]);
+  // const [sessions, setSessions] = useState([]);
   const [startSession, setStartSession] = useState(null);
 
   const handleSetTime = () => {
