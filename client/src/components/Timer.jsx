@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import {formatTime} from "../helpers/formatTime";
+import {startPauseLabel} from "../helpers/startPauseLabel";
 
 export function Timer({ sessions, setSessions }) {
   const [seconds, setSeconds] = useState(2);
@@ -7,7 +9,8 @@ export function Timer({ sessions, setSessions }) {
   const [inputMinutes, setInputMinutes] = useState(25);
   const [inputSeconds, setInputSeconds] = useState(0);
   // const [sessions, setSessions] = useState([]);
-  const [startSession, setStartSession] = useState(null);
+  // const [startSession, setStartSession] = useState(null);
+  const startSessionRef = useRef(null);
 
   const handleSetTime = () => {
     const totalSeconds = inputMinutes * 60 + inputSeconds;
@@ -21,25 +24,28 @@ export function Timer({ sessions, setSessions }) {
   const handleStart = () => {
     if (!isRunning) {
       setIsRunning(true);
-      setStartSession(new Date());
+      startSessionRef.current = new Date();
     }
   };
 
   const handleEnd = () => {
-    if (!startSession || !isRunning) {
+    if (!startSessionRef.current || !isRunning) {
       return;
     }
     setIsRunning(false);
     const session = {
-      startTime: startSession,
+      startTime: startSessionRef.current,
       endTime: new Date(),
       duration: formatTime(
-        Math.round((new Date().getTime() - startSession.getTime()) / 1000),
+        Math.round(
+          (new Date().getTime() - startSessionRef.current.getTime()) / 1000,
+        ),
       ),
     };
     setSessions((prev) => {
       return [...prev, session];
     });
+    startSessionRef.current = null;
   };
 
   const handleStartEnd = () => {
@@ -54,20 +60,7 @@ export function Timer({ sessions, setSessions }) {
     console.log(sessions);
   }, [sessions]);
 
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
 
-    return `${mins} : ${secs < 10 ? "0" : ""}${secs}`;
-  };
-
-  const startPauseLabel = function () {
-    if (isRunning) {
-      return "Pause";
-    } else {
-      return "Start";
-    }
-  };
 
   useEffect(() => {
     if (!isRunning) {
@@ -77,6 +70,23 @@ export function Timer({ sessions, setSessions }) {
     const interval = setInterval(() => {
       setSeconds((s) => {
         if (s <= 1) {
+          setIsRunning(false);
+          if (startSessionRef.current) {
+            const session = {
+              startTime: startSessionRef.current,
+              endTime: new Date(),
+              duration: formatTime(
+                Math.round(
+                  (new Date().getTime() - startSessionRef.current.getTime()) /
+                    1000,
+                ),
+              ),
+            };
+            setSessions((prev) => {
+              return [...prev, session];
+            });
+          }
+          startSessionRef.current = null;
           return 0;
         }
         return s - 1;
@@ -87,12 +97,6 @@ export function Timer({ sessions, setSessions }) {
       clearInterval(interval);
     };
   }, [isRunning]);
-
-  useEffect(() => {
-    if (seconds === 0 && isRunning) {
-      handleEnd();
-    }
-  }, [seconds, isRunning]);
 
   return (
     <>
@@ -109,11 +113,11 @@ export function Timer({ sessions, setSessions }) {
         {formatTime(seconds)}
       </div>
       <div>
-        <button onClick={handleStartEnd}>{startPauseLabel()}</button>
+        <button onClick={handleStartEnd}>{startPauseLabel(isRunning)}</button>
         <button
           onClick={() => {
             setIsRunning(false);
-            setStartSession(null);
+            startSessionRef.current = null;
             setSeconds(inputMinutes * 60 + inputSeconds);
           }}
         >
