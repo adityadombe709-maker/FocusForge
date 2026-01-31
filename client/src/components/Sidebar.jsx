@@ -1,16 +1,52 @@
+import { useState } from "react";
+
 export function Sidebar({ sessions }) {
+  const [option, setOption] = useState(0);
   function renderSessions() {
     if (sessions.length === 0) {
-      return "No sessions today";
+      switch (option) {
+        case 0:
+          return "No sessions Today";
+        case 1:
+          return "No sessions this week";
+        case 2:
+          return "No sessions this month";
+        case 3:
+          return "No sessions this year";
+      }
     } else {
-      return sessions.map((session, index) => {
+      const now = new Date();
+      function determineStart() {
+        if (option === 0) {
+          return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        } else if (option === 1) {
+          return new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate() - now.getDay(),
+          );
+        } else if (option === 2) {
+          return new Date(now.getFullYear(), now.getMonth());
+        } else {
+          return new Date(now.getFullYear(), 0, 1);
+        }
+      }
+
+      const startLimit = determineStart();
+      const filtered = sessions.filter((session) => {
+        if (session.startTime.getTime() < startLimit.getTime()) {
+          return false;
+        }
+        return true;
+      });
+
+      return filtered.map((session, index) => {
         return (
-          <>
-            <div key={index}>
-              {session.startTime.toLocaleTimeString("en-US")} - {session.endTime.toLocaleTimeString("en-US")} <br />
-              Duration:{" "}{session.duration}
-            </div>
-          </>
+          <div key={index}>
+            {session.startTime.toLocaleTimeString("en-US")} -{" "}
+            {session.endTime.toLocaleTimeString("en-US")} <br />
+            Duration: {session.duration}
+          </div>
         );
       });
     }
@@ -19,6 +55,21 @@ export function Sidebar({ sessions }) {
   return (
     <>
       <p>Today's Progress</p>
+      <div>
+        <label htmlFor="filter">Show sessions: </label>
+
+        <select
+          id="filter"
+          onChange={(e) => {
+            setOption(Number(e.target.value));
+          }}
+        >
+          <option value="0">Today</option>
+          <option value="1">This Week</option>
+          <option value="2">This month</option>
+          <option value="3">This year</option>
+        </select>
+      </div>
       {renderSessions()}
     </>
   );
