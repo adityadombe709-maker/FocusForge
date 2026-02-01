@@ -51,9 +51,11 @@ export function Dashboard() {
     },
   ]);
   return (
-    <div>
+    <div className="dashboard">
+      <div className="dashboard-main">
+        <Timer sessions={sessions} setSessions={setSessions} />
+      </div>
       <Sidebar sessions={sessions} />
-      <Timer sessions={sessions} setSessions={setSessions} />
     </div>
   );
 }

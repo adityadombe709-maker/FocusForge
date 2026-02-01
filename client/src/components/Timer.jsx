@@ -109,9 +109,10 @@ export function Timer({ sessions, setSessions }) {
       >
         {formatTime(seconds)}
       </div>
-      <div>
+      <div className="controls-container">
         <button onClick={handleStartEnd}>{startPauseLabel(isRunning)}</button>
         <button
+          className="secondary"
           onClick={() => {
             setIsRunning(false);
             startSessionRef.current = null;
@@ -122,34 +123,40 @@ export function Timer({ sessions, setSessions }) {
         </button>
       </div>
       {showTimeInput && (
-        <div>
-          <h3>Set Time</h3>
-          <div>
-            <label>Minutes: </label>
-            <input
-              type="number"
-              min="0"
-              max="180"
-              value={inputMinutes}
-              onChange={(e) => {
-                return setInputMinutes(Number(e.target.value));
-              }}
-            />
+        <div className="time-input-overlay">
+          <div className="time-input-modal">
+            <h3>Set Time</h3>
+            <div className="time-input-group">
+              <label htmlFor="minutes-input">Minutes</label>
+              <input
+                id="minutes-input"
+                type="number"
+                min="0"
+                max="180"
+                value={inputMinutes}
+                onChange={(e) => {
+                  return setInputMinutes(Number(e.target.value));
+                }}
+              />
+            </div>
+            <div className="time-input-group">
+              <label htmlFor="seconds-input">Seconds</label>
+              <input
+                id="seconds-input"
+                type="number"
+                min="0"
+                max="59"
+                value={inputSeconds}
+                onChange={(e) => {
+                  setInputSeconds(Number(e.target.value));
+                }}
+              />
+            </div>
+            <div className="time-input-actions">
+              <button className="success" onClick={handleSetTime}>Set Time</button>
+              <button className="secondary" onClick={() => setShowTimeInput(false)}>Cancel</button>
+            </div>
           </div>
-          <div>
-            <label>Seconds: </label>
-            <input
-              type="number"
-              min="0"
-              max="59"
-              value={inputSeconds}
-              onChange={(e) => {
-                setInputSeconds(Number(e.target.value));
-              }}
-            />
-          </div>
-          <button onClick={handleSetTime}>Set Time</button>
-          <button onClick={() => setShowTimeInput(false)}>Cancel</button>
         </div>
       )}
     </>

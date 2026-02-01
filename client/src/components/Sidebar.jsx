@@ -5,16 +5,24 @@ export function Sidebar({ sessions }) {
   const [option, setOption] = useState(0);
   function renderSessions() {
     if (sessions.length === 0) {
+      let message = "";
       switch (option) {
         case 0:
-          return "No sessions Today";
+          message = "No sessions today";
+          break;
         case 1:
-          return "No sessions this week";
+          message = "No sessions this week";
+          break;
         case 2:
-          return "No sessions this month";
+          message = "No sessions this month";
+          break;
         case 3:
-          return "No sessions this year";
+          message = "No sessions this year";
+          break;
+        default:
+          message = "No sessions";
       }
+      return <div className="empty-state">{message}</div>;
     } else {
       const now = new Date();
       function determineStart() {
@@ -47,44 +55,48 @@ export function Sidebar({ sessions }) {
 
       return (
         <>
-          <div>
-            Sessions: {sessionCount} <br/>
-            Time Focused: {formatTime(totalTime)} <br/>
-            Avg. Session Length: {formatTime(totalTime / sessionCount)}
+          <div className="session-stats">
+            <div><span className="stat-label">Sessions:</span> {sessionCount}</div>
+            <div><span className="stat-label">Time Focused:</span> {formatTime(totalTime)}</div>
+            <div><span className="stat-label">Avg. Session:</span> {formatTime(Math.round(totalTime / sessionCount))}</div>
           </div>
-          {filtered.map((session, index) => {
-            return (
-              <div key={index}>
-                {session.startTime.toLocaleTimeString("en-US")} -{" "}
-                {session.endTime.toLocaleTimeString("en-US")} <br />
-                Duration: {session.formattedDuration}
-              </div>
-            );
-          })}
+          <div className="session-list">
+            {filtered.map((session, index) => {
+              return (
+                <div key={index} className="session-item">
+                  <div className="session-time">
+                    {session.startTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })} – {session.endTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                  </div>
+                  <div className="session-duration">
+                    Duration: {session.formattedDuration}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </>
       );
     }
   }
 
   return (
-    <>
-      <p>Today's Progress</p>
-      <div>
-        <label htmlFor="filter">Show sessions: </label>
-
+    <div className="sidebar">
+      <p className="sidebar-title">Today's Progress</p>
+      <div className="sidebar-filter">
+        <label htmlFor="session-filter">Show sessions</label>
         <select
-          id="filter"
+          id="session-filter"
           onChange={(e) => {
             setOption(Number(e.target.value));
           }}
         >
           <option value="0">Today</option>
           <option value="1">This Week</option>
-          <option value="2">This month</option>
-          <option value="3">This year</option>
+          <option value="2">This Month</option>
+          <option value="3">This Year</option>
         </select>
       </div>
       {renderSessions()}
-    </>
+    </div>
   );
 }
