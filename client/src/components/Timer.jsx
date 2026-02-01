@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import {formatTime} from "../helpers/formatTime";
-import {startPauseLabel} from "../helpers/startPauseLabel";
+import { formatTime } from "../helpers/formatTime";
+import { startPauseLabel } from "../helpers/startPauseLabel";
 
 export function Timer({ sessions, setSessions }) {
   const [seconds, setSeconds] = useState(2);
@@ -33,14 +33,14 @@ export function Timer({ sessions, setSessions }) {
       return;
     }
     setIsRunning(false);
+    const duration = Math.round(
+      (new Date().getTime() - startSessionRef.current.getTime()) / 1000,
+    );
     const session = {
       startTime: startSessionRef.current,
       endTime: new Date(),
-      duration: formatTime(
-        Math.round(
-          (new Date().getTime() - startSessionRef.current.getTime()) / 1000,
-        ),
-      ),
+      duration: duration,
+      formattedDuration: formatTime(duration),
     };
     setSessions((prev) => {
       return [...prev, session];
@@ -60,8 +60,6 @@ export function Timer({ sessions, setSessions }) {
     console.log(sessions);
   }, [sessions]);
 
-
-
   useEffect(() => {
     if (!isRunning) {
       return;
@@ -72,15 +70,14 @@ export function Timer({ sessions, setSessions }) {
         if (s <= 1) {
           setIsRunning(false);
           if (startSessionRef.current) {
+            const duration = Math.round(
+              (new Date().getTime() - startSessionRef.current.getTime()) / 1000,
+            );
             const session = {
               startTime: startSessionRef.current,
               endTime: new Date(),
-              duration: formatTime(
-                Math.round(
-                  (new Date().getTime() - startSessionRef.current.getTime()) /
-                    1000,
-                ),
-              ),
+              duration: duration,
+              formattedDuration: formatTime(duration),
             };
             setSessions((prev) => {
               return [...prev, session];
