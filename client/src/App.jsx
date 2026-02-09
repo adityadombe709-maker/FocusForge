@@ -5,14 +5,23 @@ import { Signup } from "./pages/Signup";
 import { useState } from "react";
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  // const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return localStorage.getItem("loggedIn") === "true";
+  });
   return (
     <BrowserRouter>
       {/* <Dashboard /> */}
       <Routes>
         <Route
           path="/"
-          element={<Login setIsLoggedIn={setIsLoggedIn} />}
+          element={
+            isLoggedIn ? (
+              <Navigate to="/dashboard" />
+            ) : (
+              <Login setIsLoggedIn={setIsLoggedIn} />
+            )
+          }
         ></Route>
         <Route
           path="/signup"
@@ -20,7 +29,13 @@ function App() {
         ></Route>
         <Route
           path="/dashboard"
-          element={isLoggedIn ? <Dashboard /> : <Navigate to="/" />}
+          element={
+            isLoggedIn ? (
+              <Dashboard setIsLoggedIn={setIsLoggedIn} />
+            ) : (
+              <Navigate to="/" />
+            )
+          }
         ></Route>
       </Routes>
     </BrowserRouter>

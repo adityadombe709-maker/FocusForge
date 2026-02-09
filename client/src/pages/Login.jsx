@@ -12,6 +12,7 @@ export function Login({ setIsLoggedIn }) {
       return;
     }
     setIsLoggedIn(true);
+    localStorage.setItem("loggedIn", "true");
     navigate("/dashboard");
   };
 
