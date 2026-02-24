@@ -1,15 +1,69 @@
 import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
-
+import cors from "cors";
+import bcrypt from "bcryptjs";
+import { User } from "./models/User.js";
 dotenv.config();
 
 const app = express();
 
 app.use(express.json());
+app.use(cors());
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "server running" });
+});
+
+app.post("/api/signup", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    //checking if user already exists
+    const userExists = await User.findOne({ email });
+    if (userExists) {
+      return res.status(400).json({ message: "Email already exists. Please login." });
+    }
+
+    //hashing the password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    //create and save the user
+    const newUser = await User.create({
+      email,
+      password: hashedPassword,
+    });
+    res
+      .status(201)
+      .json({ message: "User registered successfully.", userId: newUser._id });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Server error during signup.", error: error.message });
+  }
+});
+
+app.post("/api/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    //find user email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ message: "Invalid Credentials" });
+    }
+
+    //check password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Invalid Credentials" });
+    }
+
+    //success
+    res.status(200).json({ message: "Login Successful", userId: user._id });
+  } catch (error) {
+    res.status(500).json({ message: "Server error during login" });
+  }
 });
 
 const MONGODB_URI =

@@ -1,21 +1,35 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
 
-export function Signup({setIsLoggedIn}) {
+export function Signup({ setIsLoggedIn }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
 
-  const handleSignup = () => {
+  const handleSignup = async () => {
     if (!email || !password) {
       alert("Fill all fields");
       return;
     }
 
-    setIsLoggedIn(true);
-    localStorage.setItem("loggedIn", "true");
-    navigate("/dashboard");
-  }
+    // setIsLoggedIn(true);
+    // localStorage.setItem("loggedIn", "true");
+    // navigate("/dashboard");
+    try {
+      const response = await axios.post("/api/signup", {
+        email,
+        password,
+      });
+
+      setIsLoggedIn(true);
+      localStorage.setItem("loggedIn", "true");
+      localStorage.setItem("userId", response.data.userId);
+      navigate("/dashboard");
+    } catch (error) {
+      alert(error.response?.data?.message || "An error occurred during signup");
+    }
+  };
   return (
     <div>
       <h2>Signup</h2>

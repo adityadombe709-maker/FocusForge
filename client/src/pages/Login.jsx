@@ -1,19 +1,30 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import axios from "axios";
 
 export function Login({ setIsLoggedIn }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email || !password) {
       alert("Fill all fields");
       return;
     }
-    setIsLoggedIn(true);
-    localStorage.setItem("loggedIn", "true");
-    navigate("/dashboard");
+
+    try {
+      const response = await axios.post("/api/login", { email, password });
+
+      if (response.status === 200) {
+        setIsLoggedIn(true);
+        localStorage.setItem("loggedIn", "true");
+        localStorage.setItem("userId", response.data.userId);
+        navigate("/dashboard");
+      }
+    } catch (error) {
+      alert(error.response?.data?.message || "Login failed. Please try again.");
+    }
   };
 
   return (
