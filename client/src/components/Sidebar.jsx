@@ -1,7 +1,30 @@
 import { useState } from "react";
 import { formatTime } from "../helpers/formatTime";
+import axios from "axios";
 
-export function Sidebar({ sessions }) {
+export function Sidebar({ sessions, fetchSessions }) {
+  const deleteOne = async (e) => {
+    try {
+      const response = await axios.delete(`/api/session/${e.currentTarget.value}`);
+      console.log("Session deleted");
+      fetchSessions();
+    } catch (error) {
+      console.log("Deletion failed: ", error.message);
+    }
+  };
+
+  const deleteAll = async () => {
+    try {
+      const response = await axios.delete(
+        `/api/sessions/${localStorage.getItem("userId")}`,
+      );
+      console.log("Session history deleted");
+      fetchSessions();
+    } catch (error) {
+      console.log("Failed to delete session history: ", error.message);
+    }
+  };
+
   const [option, setOption] = useState(0);
   function renderSessions() {
     if (sessions.length === 0) {
@@ -67,11 +90,12 @@ export function Sidebar({ sessions }) {
               <span className="stat-label">Avg. Session:</span>{" "}
               {formatTime(Math.round(totalTime / sessionCount))}
             </div>
+            <button onClick={deleteAll}>Delete all sessions</button>
           </div>
           <div className="session-list">
-            {filtered.map((session, index) => {
+            {filtered.map((session) => {
               return (
-                <div key={index} className="session-item">
+                <div key={session._id} className="session-item">
                   <div className="session-time">
                     {session.startTime.toLocaleTimeString("en-US", {
                       hour: "2-digit",
@@ -86,6 +110,9 @@ export function Sidebar({ sessions }) {
                   <div className="session-duration">
                     Duration: {formatTime(session.duration)}
                   </div>
+                  <button value={session._id} onClick={deleteOne}>
+                    Delete session
+                  </button>
                 </div>
               );
             })}

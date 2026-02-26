@@ -40,6 +40,11 @@ export function Signup({ setIsLoggedIn }) {
         onChange={(e) => {
           setEmail(e.target.value);
         }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            handleSignup();
+          }
+        }}
       />
       <input
         type="password"
@@ -47,6 +52,11 @@ export function Signup({ setIsLoggedIn }) {
         value={password}
         onChange={(e) => {
           setPassword(e.target.value);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            handleSignup();
+          }
         }}
       />
       <button onClick={handleSignup}>Create Account</button>

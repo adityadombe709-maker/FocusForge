@@ -35,10 +35,15 @@ export function Timer({ sessions, setSessions }) {
       return;
     }
     setIsRunning(false);
+    const startTime = startSessionRef.current;
+    startSessionRef.current = null;
     const endTime = new Date();
     const duration = Math.round(
-      (endTime.getTime() - startSessionRef.current.getTime()) / 1000,
+      (endTime.getTime() - startTime.current.getTime()) / 1000,
     );
+    if (duration < 1) {
+      return;
+    }
     try {
       const userId = localStorage.getItem("userId");
       if (!userId) {
@@ -46,29 +51,26 @@ export function Timer({ sessions, setSessions }) {
       }
       const response = await axios.post("/api/sessions", {
         userId,
-        startTime: startSessionRef.current,
+        startTime: startTime,
         endTime: endTime,
         duration: duration,
       });
 
-      setSessions(
-        (prev) => {
-          return [
-            {
-              ...response.data,
-              startTime: new Date(response.data.startTime),
-              endTime: new Date(response.data.endTime),
-            },
-            ...prev,
-          ];
-        },
-        [isRunning, setSessions],
-      );
+      setSessions((prev) => {
+        return [
+          {
+            ...response.data,
+            startTime: new Date(response.data.startTime),
+            endTime: new Date(response.data.endTime),
+          },
+          ...prev,
+        ];
+      });
     } catch (error) {
       console.error("Failed to save session: ", error);
     }
     startSessionRef.current = null;
-  });
+  }, [isRunning, setSessions]);
 
   //Just combines start and end functions
   const handleStartEnd = () => {
@@ -120,9 +122,10 @@ export function Timer({ sessions, setSessions }) {
         <button
           className="secondary"
           onClick={() => {
-            setIsRunning(false);
-            startSessionRef.current = null;
+            // setIsRunning(false);
+            // startSessionRef.current = null;
             setSeconds(inputMinutes * 60 + inputSeconds);
+            handleEnd();
           }}
         >
           Reset

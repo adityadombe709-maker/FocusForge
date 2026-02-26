@@ -37,7 +37,7 @@ app.post("/api/signup", async (req, res) => {
       email,
       password: hashedPassword,
     });
-    res
+    return res
       .status(201)
       .json({ message: "User registered successfully.", userId: newUser._id });
   } catch (error) {
@@ -99,6 +99,34 @@ app.get("/api/sessions/:userId", async (req, res) => {
     res
       .status(500)
       .json({ message: "Failed to fetch sessions.", error: error.message });
+  }
+});
+
+//Route to delete single session
+app.delete("/api/session/:sessionId", async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    await Session.findByIdAndDelete(sessionId);
+    return res.status(200).json({ message: "Session deleted." });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Failed to delete session.", error: error.message });
+  }
+});
+
+app.delete("/api/sessions/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    await Session.deleteMany({ userId });
+    return res
+      .status(200)
+      .json({ message: "Session history deleted successfully." });
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to delete session history.",
+      error: error.message,
+    });
   }
 });
 
