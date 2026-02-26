@@ -56,19 +56,35 @@ export function Sidebar({ sessions }) {
       return (
         <>
           <div className="session-stats">
-            <div><span className="stat-label">Sessions:</span> {sessionCount}</div>
-            <div><span className="stat-label">Time Focused:</span> {formatTime(totalTime)}</div>
-            <div><span className="stat-label">Avg. Session:</span> {formatTime(Math.round(totalTime / sessionCount))}</div>
+            <div>
+              <span className="stat-label">Sessions:</span> {sessionCount}
+            </div>
+            <div>
+              <span className="stat-label">Time Focused:</span>{" "}
+              {formatTime(totalTime)}
+            </div>
+            <div>
+              <span className="stat-label">Avg. Session:</span>{" "}
+              {formatTime(Math.round(totalTime / sessionCount))}
+            </div>
           </div>
           <div className="session-list">
             {filtered.map((session, index) => {
               return (
                 <div key={index} className="session-item">
                   <div className="session-time">
-                    {session.startTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })} – {session.endTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                    {session.startTime.toLocaleTimeString("en-US", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}{" "}
+                    –{" "}
+                    {session.endTime.toLocaleTimeString("en-US", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </div>
                   <div className="session-duration">
-                    Duration: {session.formattedDuration}
+                    Duration: {formatTime(session.duration)}
                   </div>
                 </div>
               );

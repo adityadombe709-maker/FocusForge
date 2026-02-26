@@ -1,74 +1,35 @@
 import { Sidebar } from "../components/Sidebar";
 import { Timer } from "../components/Timer";
 import { useState, useEffect } from "react";
+import axios from "axios";
 
 export function Dashboard({ setIsLoggedIn }) {
-  // const [sessions, setSessions] = useState([
-  //   {
-  //     startTime: new Date(),
-  //     endTime: new Date(Date.now() + 25 * 60 * 1000),
-  //     duration: 25 * 60,
-  //     formattedDuration: "25:00",
-  //   },
-
-  //   {
-  //     startTime: new Date(Date.now() - 24 * 60 * 60 * 1000),
-  //     endTime: new Date(Date.now() - 24 * 60 * 60 * 1000 + 20 * 60 * 1000),
-  //     duration: 20 * 60,
-  //     formattedDuration: "20:00",
-  //   },
-
-  //   {
-  //     startTime: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-  //     endTime: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000 + 15 * 60 * 1000),
-  //     duration: 15 * 60,
-  //     formattedDuration: "15:00",
-  //   },
-
-  //   {
-  //     startTime: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
-  //     endTime: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000 + 30 * 60 * 1000),
-  //     duration: 30 * 60,
-  //     formattedDuration: "30:00",
-  //   },
-
-  //   {
-  //     startTime: new Date(new Date().setMonth(new Date().getMonth() - 1)),
-  //     endTime: new Date(
-  //       new Date().setMonth(new Date().getMonth() - 1) + 20 * 60 * 1000,
-  //     ),
-  //     duration: 20 * 60,
-  //     formattedDuration: "20:00",
-  //   },
-
-  //   {
-  //     startTime: new Date(new Date().setFullYear(new Date().getFullYear() - 1)),
-  //     endTime: new Date(
-  //       new Date().setFullYear(new Date().getFullYear() - 1) + 10 * 60 * 1000,
-  //     ),
-  //     duration: 10 * 60,
-  //     formattedDuration: "10:00",
-  //   },
-  // ]);
-  const [sessions, setSessions] = useState(() => {
-    const stored = localStorage.getItem("sessions");
-    if (!stored) {
-      return [];
-    }
-    const parsed = JSON.parse(stored);
-
-    return parsed.map((session) => {
-      return {
-        ...session,
-        startTime: new Date(session.startTime),
-        endTime: new Date(session.endTime),
-      };
-    });
-  });
+  const [sessions, setSessions] = useState([]);
 
   useEffect(() => {
-    localStorage.setItem("sessions", JSON.stringify(sessions));
-  }, [sessions]);
+    const fetchSessions = async () => {
+      const userId = localStorage.getItem("userId");
+      if (!userId) {
+        return;
+      }
+
+      try {
+        const response = await axios.get(`/api/sessions/${userId}`);
+        const hydratedSessions = response.data.map((session) => {
+          return {
+            ...session,
+            startTime: new Date(session.startTime),
+            endTime: new Date(session.endTime),
+          };
+        });
+        setSessions(hydratedSessions);
+      } catch (error) {
+        console.error("Failed to fetch sessions: ", error);
+      }
+    };
+    fetchSessions();
+  }, []);
+
 
   return (
     <div className="dashboard">
@@ -79,7 +40,8 @@ export function Dashboard({ setIsLoggedIn }) {
       <button
         onClick={() => {
           setIsLoggedIn(false);
-          localStorage.setItem("loggedIn", "false");
+          localStorage.removeItem("loggedIn");
+          localStorage.removeItem("userId");
         }}
       >
         Logout

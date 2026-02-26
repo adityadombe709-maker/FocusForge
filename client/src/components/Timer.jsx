@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { formatTime } from "../helpers/formatTime";
 import { startPauseLabel } from "../helpers/startPauseLabel";
+import axios from "axios";
 
 export function Timer({ sessions, setSessions }) {
   const [seconds, setSeconds] = useState(2);
@@ -8,10 +9,9 @@ export function Timer({ sessions, setSessions }) {
   const [showTimeInput, setShowTimeInput] = useState(false);
   const [inputMinutes, setInputMinutes] = useState(25);
   const [inputSeconds, setInputSeconds] = useState(0);
-  // const [sessions, setSessions] = useState([]);
-  // const [startSession, setStartSession] = useState(null);
   const startSessionRef = useRef(null);
 
+  //Calculates seconds from input
   const handleSetTime = () => {
     const totalSeconds = inputMinutes * 60 + inputSeconds;
     if (totalSeconds > 0) {
@@ -21,33 +21,56 @@ export function Timer({ sessions, setSessions }) {
     }
   };
 
+  //handles starting of the timer
   const handleStart = () => {
-    if (!isRunning) {
+    if (!isRunning && seconds >= 1) {
       setIsRunning(true);
       startSessionRef.current = new Date();
     }
   };
 
-  const handleEnd = () => {
+  //handles stopping or pausing of the timer
+  const handleEnd = useCallback(async () => {
     if (!startSessionRef.current || !isRunning) {
       return;
     }
     setIsRunning(false);
+    const endTime = new Date();
     const duration = Math.round(
-      (new Date().getTime() - startSessionRef.current.getTime()) / 1000,
+      (endTime.getTime() - startSessionRef.current.getTime()) / 1000,
     );
-    const session = {
-      startTime: startSessionRef.current,
-      endTime: new Date(),
-      duration: duration,
-      formattedDuration: formatTime(duration),
-    };
-    setSessions((prev) => {
-      return [...prev, session];
-    });
-    startSessionRef.current = null;
-  };
+    try {
+      const userId = localStorage.getItem("userId");
+      if (!userId) {
+        return;
+      }
+      const response = await axios.post("/api/sessions", {
+        userId,
+        startTime: startSessionRef.current,
+        endTime: endTime,
+        duration: duration,
+      });
 
+      setSessions(
+        (prev) => {
+          return [
+            {
+              ...response.data,
+              startTime: new Date(response.data.startTime),
+              endTime: new Date(response.data.endTime),
+            },
+            ...prev,
+          ];
+        },
+        [isRunning, setSessions],
+      );
+    } catch (error) {
+      console.error("Failed to save session: ", error);
+    }
+    startSessionRef.current = null;
+  });
+
+  //Just combines start and end functions
   const handleStartEnd = () => {
     if (!isRunning) {
       handleStart();
@@ -57,8 +80,10 @@ export function Timer({ sessions, setSessions }) {
   };
 
   useEffect(() => {
-    console.log(sessions);
-  }, [sessions]);
+    if (seconds === 0 && isRunning) {
+      handleEnd();
+    }
+  }, [seconds, isRunning, handleEnd]);
 
   useEffect(() => {
     if (!isRunning) {
@@ -67,26 +92,7 @@ export function Timer({ sessions, setSessions }) {
 
     const interval = setInterval(() => {
       setSeconds((s) => {
-        if (s <= 1) {
-          setIsRunning(false);
-          if (startSessionRef.current) {
-            const duration = Math.round(
-              (new Date().getTime() - startSessionRef.current.getTime()) / 1000,
-            );
-            const session = {
-              startTime: startSessionRef.current,
-              endTime: new Date(),
-              duration: duration,
-              formattedDuration: formatTime(duration),
-            };
-            setSessions((prev) => {
-              return [...prev, session];
-            });
-          }
-          startSessionRef.current = null;
-          return 0;
-        }
-        return s - 1;
+        return Math.max(0, s - 1);
       });
     }, 1000);
 
@@ -135,7 +141,7 @@ export function Timer({ sessions, setSessions }) {
                 max="180"
                 value={inputMinutes}
                 onChange={(e) => {
-                  return setInputMinutes(Number(e.target.value));
+                  setInputMinutes(Number(e.target.value));
                 }}
               />
             </div>
@@ -153,8 +159,15 @@ export function Timer({ sessions, setSessions }) {
               />
             </div>
             <div className="time-input-actions">
-              <button className="success" onClick={handleSetTime}>Set Time</button>
-              <button className="secondary" onClick={() => setShowTimeInput(false)}>Cancel</button>
+              <button className="success" onClick={handleSetTime}>
+                Set Time
+              </button>
+              <button
+                className="secondary"
+                onClick={() => setShowTimeInput(false)}
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>

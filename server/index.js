@@ -4,6 +4,8 @@ import dotenv from "dotenv";
 import cors from "cors";
 import bcrypt from "bcryptjs";
 import { User } from "./models/User.js";
+import { Session } from "./models/Session.js";
+
 dotenv.config();
 
 const app = express();
@@ -22,7 +24,9 @@ app.post("/api/signup", async (req, res) => {
     //checking if user already exists
     const userExists = await User.findOne({ email });
     if (userExists) {
-      return res.status(400).json({ message: "Email already exists. Please login." });
+      return res
+        .status(400)
+        .json({ message: "Email already exists. Please login." });
     }
 
     //hashing the password
@@ -63,6 +67,38 @@ app.post("/api/login", async (req, res) => {
     res.status(200).json({ message: "Login Successful", userId: user._id });
   } catch (error) {
     res.status(500).json({ message: "Server error during login" });
+  }
+});
+
+//Route to store a new study session
+app.post("/api/sessions", async (req, res) => {
+  try {
+    const { userId, startTime, endTime, duration } = req.body;
+
+    const newSession = await Session.create({
+      userId,
+      startTime,
+      endTime,
+      duration,
+    });
+    return res.status(201).json(newSession);
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Failed to save session.", error: error.message });
+  }
+});
+
+//Route to fetch all sessions for the logged in user
+app.get("/api/sessions/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const sessions = await Session.find({ userId }).sort({ createdAt: -1 });
+    res.status(200).json(sessions);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Failed to fetch sessions.", error: error.message });
   }
 });
 
