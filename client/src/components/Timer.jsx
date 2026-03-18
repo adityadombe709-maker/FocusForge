@@ -10,6 +10,7 @@ export function Timer({ sessions, setSessions }) {
   const [inputMinutes, setInputMinutes] = useState(25);
   const [inputSeconds, setInputSeconds] = useState(0);
   const startSessionRef = useRef(null);
+  const wasRunningBeforePauseRef = useRef(false);
 
   //Calculates seconds from input
   const handleSetTime = () => {
@@ -39,7 +40,7 @@ export function Timer({ sessions, setSessions }) {
     startSessionRef.current = null;
     const endTime = new Date();
     const duration = Math.round(
-      (endTime.getTime() - startTime.current.getTime()) / 1000,
+      (endTime.getTime() - startTime.getTime()) / 1000,
     );
     if (duration < 1) {
       return;
@@ -81,12 +82,14 @@ export function Timer({ sessions, setSessions }) {
     }
   };
 
+  //stop timer when it hits zero
   useEffect(() => {
     if (seconds === 0 && isRunning) {
       handleEnd();
     }
   }, [seconds, isRunning, handleEnd]);
 
+  //timer logic
   useEffect(() => {
     if (!isRunning) {
       return;
@@ -102,6 +105,33 @@ export function Timer({ sessions, setSessions }) {
       clearInterval(interval);
     };
   }, [isRunning]);
+
+  //handle messages from extension
+  useEffect(() => {
+    const handleMessage = (event) => {
+      //check if message is from out extension
+      if (event.data.type === "FROM_EXTENSION") {
+        //get pausing message
+        const shouldPause = event.data.shouldPause;
+
+        if (shouldPause && isRunning) {
+          wasRunningBeforePauseRef.current = true;
+          handleEnd();
+        } else if (!shouldPause && !isRunning && wasRunningBeforePauseRef) {
+          handleStart();
+          wasRunningBeforePauseRef.current = false;
+        }
+      }
+    };
+
+    //listen for messages
+    window.addEventListener("message", handleMessage);
+
+    //Cleanup: listener no longer needed when the component isnt rendering
+    return () => {
+      return window.removeEventListener("message", handleMessage);
+    };
+  }, [isRunning, handleStart, handleEnd]);
 
   return (
     <>
