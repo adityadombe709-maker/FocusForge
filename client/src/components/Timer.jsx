@@ -12,6 +12,27 @@ export function Timer({ sessions, setSessions }) {
   const startSessionRef = useRef(null);
   const wasRunningBeforePauseRef = useRef(false);
 
+  const logTimerEvent = (event, details = {}) => {
+    const timestamp = new Date().toISOString();
+    console.log(`[Timer] ${event} @ ${timestamp}`, details);
+  };
+
+  useEffect(() => {
+    const handleExtensionPing = (event) => {
+      if (event.source !== window) {
+        return;
+      }
+
+      if (event.data?.type === "FOCUSFORGE_EXTENSION_PING") {
+        logTimerEvent("EXTENSION_PING_RECEIVED");
+        window.postMessage({ type: "FOCUSFORGE_TIMER_READY" }, "*");
+      }
+    };
+
+    window.addEventListener("message", handleExtensionPing);
+    return () => window.removeEventListener("message", handleExtensionPing);
+  }, []);
+
   //Calculates seconds from input
   const handleSetTime = () => {
     const totalSeconds = inputMinutes * 60 + inputSeconds;
@@ -23,69 +44,81 @@ export function Timer({ sessions, setSessions }) {
   };
 
   //handles starting of the timer
-  const handleStart = () => {
+  const handleStart = (source = "manual_start") => {
     if (!isRunning && seconds >= 1) {
+      logTimerEvent("RESUMED", {
+        source,
+        secondsRemaining: seconds,
+      });
       setIsRunning(true);
       startSessionRef.current = new Date();
     }
   };
 
   //handles stopping or pausing of the timer
-  const handleEnd = useCallback(async () => {
-    if (!startSessionRef.current || !isRunning) {
-      return;
-    }
-    setIsRunning(false);
-    const startTime = startSessionRef.current;
-    startSessionRef.current = null;
-    const endTime = new Date();
-    const duration = Math.round(
-      (endTime.getTime() - startTime.getTime()) / 1000,
-    );
-    if (duration < 1) {
-      return;
-    }
-    try {
-      const userId = localStorage.getItem("userId");
-      if (!userId) {
+  const handleEnd = useCallback(
+    async (reason = "manual_pause") => {
+      if (!startSessionRef.current || !isRunning) {
         return;
       }
-      const response = await axios.post("/api/sessions", {
-        userId,
-        startTime: startTime,
-        endTime: endTime,
-        duration: duration,
+      setIsRunning(false);
+      const startTime = startSessionRef.current;
+      startSessionRef.current = null;
+      const endTime = new Date();
+      const duration = Math.round(
+        (endTime.getTime() - startTime.getTime()) / 1000,
+      );
+      logTimerEvent("PAUSED", {
+        reason,
+        pausedAtSecondsRemaining: seconds,
+        elapsedSeconds: duration,
       });
+      if (duration < 1) {
+        return;
+      }
+      try {
+        const userId = localStorage.getItem("userId");
+        if (!userId) {
+          return;
+        }
+        const response = await axios.post("/api/sessions", {
+          userId,
+          startTime: startTime,
+          endTime: endTime,
+          duration: duration,
+        });
 
-      setSessions((prev) => {
-        return [
-          {
-            ...response.data,
-            startTime: new Date(response.data.startTime),
-            endTime: new Date(response.data.endTime),
-          },
-          ...prev,
-        ];
-      });
-    } catch (error) {
-      console.error("Failed to save session: ", error);
-    }
-    startSessionRef.current = null;
-  }, [isRunning, setSessions]);
+        setSessions((prev) => {
+          return [
+            {
+              ...response.data,
+              startTime: new Date(response.data.startTime),
+              endTime: new Date(response.data.endTime),
+            },
+            ...prev,
+          ];
+        });
+      } catch (error) {
+        console.error("Failed to save session: ", error);
+      }
+      startSessionRef.current = null;
+    },
+    [isRunning, seconds, setSessions],
+  );
 
   //Just combines start and end functions
   const handleStartEnd = () => {
     if (!isRunning) {
-      handleStart();
+      handleStart("manual_start");
     } else {
-      handleEnd();
+      handleEnd("manual_pause");
     }
   };
 
   //stop timer when it hits zero
   useEffect(() => {
     if (seconds === 0 && isRunning) {
-      handleEnd();
+      handleEnd("completed");
     }
   }, [seconds, isRunning, handleEnd]);
 
@@ -106,6 +139,12 @@ export function Timer({ sessions, setSessions }) {
     };
   }, [isRunning]);
 
+  //announce timer page so extension can register the correct tab
+  useEffect(() => {
+    logTimerEvent("TIMER_READY_SIGNAL_SENT");
+    window.postMessage({ type: "FOCUSFORGE_TIMER_READY" }, "*");
+  }, []);
+
   //handle messages from extension
   useEffect(() => {
     const handleMessage = (event) => {
@@ -113,12 +152,20 @@ export function Timer({ sessions, setSessions }) {
       if (event.data.type === "FROM_EXTENSION") {
         //get pausing message
         const shouldPause = event.data.shouldPause;
+        logTimerEvent("EXTENSION_STATUS_RECEIVED", {
+          shouldPause,
+          currentDomain: event.data.currentDomain,
+        });
 
         if (shouldPause && isRunning) {
           wasRunningBeforePauseRef.current = true;
-          handleEnd();
-        } else if (!shouldPause && !isRunning && wasRunningBeforePauseRef) {
-          handleStart();
+          handleEnd("extension_pause");
+        } else if (
+          !shouldPause &&
+          !isRunning &&
+          wasRunningBeforePauseRef.current
+        ) {
+          handleStart("extension_resume");
           wasRunningBeforePauseRef.current = false;
         }
       }
@@ -155,7 +202,7 @@ export function Timer({ sessions, setSessions }) {
             // setIsRunning(false);
             // startSessionRef.current = null;
             setSeconds(inputMinutes * 60 + inputSeconds);
-            handleEnd();
+            handleEnd("reset");
           }}
         >
           Reset
