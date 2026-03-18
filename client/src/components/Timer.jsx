@@ -11,6 +11,12 @@ export function Timer({ sessions, setSessions }) {
   const [inputSeconds, setInputSeconds] = useState(0);
   const startSessionRef = useRef(null);
   const wasRunningBeforePauseRef = useRef(false);
+  const isRunningRef = useRef(isRunning);
+  const handleEndRef = useRef(null);
+  const handleStartRef = useRef(null);
+
+  //keep refs in sync with latest values on every render
+  isRunningRef.current = isRunning;
 
   //Calculates seconds from input
   const handleSetTime = () => {
@@ -32,7 +38,7 @@ export function Timer({ sessions, setSessions }) {
 
   //handles stopping or pausing of the timer
   const handleEnd = useCallback(async () => {
-    if (!startSessionRef.current || !isRunning) {
+    if (!startSessionRef.current || !isRunningRef.current) {
       return;
     }
     setIsRunning(false);
@@ -71,7 +77,11 @@ export function Timer({ sessions, setSessions }) {
       console.error("Failed to save session: ", error);
     }
     startSessionRef.current = null;
-  }, [isRunning, setSessions]);
+  }, [setSessions]);
+
+  //keep function refs in sync so the message handler always calls the latest versions
+  handleEndRef.current = handleEnd;
+  handleStartRef.current = handleStart;
 
   //Just combines start and end functions
   const handleStartEnd = () => {
@@ -109,16 +119,16 @@ export function Timer({ sessions, setSessions }) {
   //handle messages from extension
   useEffect(() => {
     const handleMessage = (event) => {
-      //check if message is from out extension
+      //check if message is from our extension
       if (event.data.type === "FROM_EXTENSION") {
         //get pausing message
         const shouldPause = event.data.shouldPause;
 
-        if (shouldPause && isRunning) {
+        if (shouldPause && isRunningRef.current) {
           wasRunningBeforePauseRef.current = true;
-          handleEnd();
-        } else if (!shouldPause && !isRunning && wasRunningBeforePauseRef) {
-          handleStart();
+          handleEndRef.current();
+        } else if (!shouldPause && !isRunningRef.current && wasRunningBeforePauseRef.current) {
+          handleStartRef.current();
           wasRunningBeforePauseRef.current = false;
         }
       }
@@ -129,9 +139,9 @@ export function Timer({ sessions, setSessions }) {
 
     //Cleanup: listener no longer needed when the component isnt rendering
     return () => {
-      return window.removeEventListener("message", handleMessage);
+      window.removeEventListener("message", handleMessage);
     };
-  }, [isRunning, handleStart, handleEnd]);
+  }, []);
 
   return (
     <>
