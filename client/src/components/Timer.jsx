@@ -12,66 +12,95 @@ export function Timer({ sessions, setSessions }) {
   const startSessionRef = useRef(null);
   const wasRunningBeforePauseRef = useRef(false);
 
+  const runStartedAtMsRef = useRef(null);
+  const baseSecondsRef = useRef(0);
+  const secondsRef = useRef(seconds);
+
+  //update secondsRef with seconds
+  useEffect(() => {
+    secondsRef.current = seconds;
+  }, [seconds]);
+
+  //timer-extension resume-pause logger
+  const logTimerEvent = (event, details = {}) => {
+    const timestamp = new Date().toISOString();
+    console.log(`[Timer] ${event} @ ${timestamp}`, details);
+  };
+
   //Calculates seconds from input
   const handleSetTime = () => {
     const totalSeconds = inputMinutes * 60 + inputSeconds;
     if (totalSeconds > 0) {
       setSeconds(totalSeconds);
+      baseSecondsRef.current = totalSeconds;
+      runStartedAtMsRef.current = null;
       setShowTimeInput(false);
       setIsRunning(false);
     }
   };
 
   //handles starting of the timer
-  const handleStart = () => {
+  const handleStart = (source = "manual_start") => {
     if (!isRunning && seconds >= 1) {
+      logTimerEvent("RESUMED", { source, secondsRemaining: seconds });
+      baseSecondsRef.current = secondsRef.current;
+      runStartedAtMsRef.current = Date.now();
       setIsRunning(true);
       startSessionRef.current = new Date();
     }
   };
 
   //handles stopping or pausing of the timer
-  const handleEnd = useCallback(async () => {
-    if (!startSessionRef.current || !isRunning) {
-      return;
-    }
-    setIsRunning(false);
-    const startTime = startSessionRef.current;
-    startSessionRef.current = null;
-    const endTime = new Date();
-    const duration = Math.round(
-      (endTime.getTime() - startTime.getTime()) / 1000,
-    );
-    if (duration < 1) {
-      return;
-    }
-    try {
-      const userId = localStorage.getItem("userId");
-      if (!userId) {
+  const handleEnd = useCallback(
+    async (reason = "manual_pause") => {
+      if (!startSessionRef.current || !isRunning) {
         return;
       }
-      const response = await axios.post("/api/sessions", {
-        userId,
-        startTime: startTime,
-        endTime: endTime,
-        duration: duration,
+      setIsRunning(false);
+      runStartedAtMsRef.current = null;
+      const startTime = startSessionRef.current;
+      startSessionRef.current = null;
+      const endTime = new Date();
+      const duration = Math.round(
+        (endTime.getTime() - startTime.getTime()) / 1000,
+      );
+      logTimerEvent("PAUSED", {
+        reason,
+        pausedAtSecondsRemaining: secondsRef.current,
+        elapsedSeconds: duration,
       });
+      if (duration < 1) {
+        return;
+      }
+      try {
+        const userId = localStorage.getItem("userId");
+        if (!userId) {
+          return;
+        }
+        const response = await axios.post("/api/sessions", {
+          userId,
+          startTime: startTime,
+          endTime: endTime,
+          duration: duration,
+        });
 
-      setSessions((prev) => {
-        return [
-          {
-            ...response.data,
-            startTime: new Date(response.data.startTime),
-            endTime: new Date(response.data.endTime),
-          },
-          ...prev,
-        ];
-      });
-    } catch (error) {
-      console.error("Failed to save session: ", error);
-    }
-    startSessionRef.current = null;
-  }, [isRunning, setSessions]);
+        setSessions((prev) => {
+          return [
+            {
+              ...response.data,
+              startTime: new Date(response.data.startTime),
+              endTime: new Date(response.data.endTime),
+            },
+            ...prev,
+          ];
+        });
+      } catch (error) {
+        console.error("Failed to save session: ", error);
+      }
+      startSessionRef.current = null;
+    },
+    [isRunning, setSessions], //useCallBack dependencies
+  );
 
   //Just combines start and end functions
   const handleStartEnd = () => {
@@ -91,15 +120,16 @@ export function Timer({ sessions, setSessions }) {
 
   //timer logic
   useEffect(() => {
-    if (!isRunning) {
-      return;
-    }
+    if (!isRunning) return;
 
     const interval = setInterval(() => {
-      setSeconds((s) => {
-        return Math.max(0, s - 1);
-      });
-    }, 1000);
+      const runStartedAtMs = runStartedAtMsRef.current;
+      if (!runStartedAtMs) return;
+
+      const elapsedSeconds = Math.floor((Date.now() - runStartedAtMs) / 1000);
+      const nextSeconds = Math.max(0, baseSecondsRef.current - elapsedSeconds);
+      setSeconds(nextSeconds);
+    }, 250);
 
     return () => {
       clearInterval(interval);
@@ -113,12 +143,20 @@ export function Timer({ sessions, setSessions }) {
       if (event.data.type === "FROM_EXTENSION") {
         //get pausing message
         const shouldPause = event.data.shouldPause;
+        logTimerEvent("EXTENSION_STATUS_RECEIVED", {
+          shouldPause,
+          currentDomain: event.data.currentDomain,
+        });
 
         if (shouldPause && isRunning) {
           wasRunningBeforePauseRef.current = true;
-          handleEnd();
-        } else if (!shouldPause && !isRunning && wasRunningBeforePauseRef) {
-          handleStart();
+          handleEnd("extension_pause");
+        } else if (
+          !shouldPause &&
+          !isRunning &&
+          wasRunningBeforePauseRef.current
+        ) {
+          handleStart("extension_resume");
           wasRunningBeforePauseRef.current = false;
         }
       }
@@ -152,10 +190,11 @@ export function Timer({ sessions, setSessions }) {
         <button
           className="secondary"
           onClick={() => {
-            // setIsRunning(false);
-            // startSessionRef.current = null;
-            setSeconds(inputMinutes * 60 + inputSeconds);
-            handleEnd();
+            const resetSeconds = inputMinutes * 60 + inputSeconds;
+            setSeconds(resetSeconds);
+            baseSecondsRef.current = resetSeconds;
+            runStartedAtMsRef.current = null;
+            handleEnd("reset");
           }}
         >
           Reset

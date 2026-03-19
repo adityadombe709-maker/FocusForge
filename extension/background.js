@@ -1,60 +1,85 @@
-//stores timer's tab id
+//store timer tab id
 let timerTabId = null;
 
-//listen for timer to register
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === "registerTimer") {
-    //remember timer's tab
+//timer alerts extension
+chrome.runtime.onMessage.addListener((request, sender) => {
+  if (request.action === "registerTimer" && sender.tab?.id) {
     timerTabId = sender.tab.id;
     console.log("Timer registered in tab: ", timerTabId);
   }
 });
 
-//listen for when the user switches to a different tab
-chrome.tabs.onActivated.addListener((activeInfo) => {
-  //get the tab that was just activated
-  chrome.tabs.get(activeInfo.tabId, (tab) => {
-    // Check if tab.url exists and is a valid http/https URL
-    if (!tab.url || (!tab.url.startsWith("http://") && !tab.url.startsWith("https://"))) {
-      // Not a normal web page, skip processing
-      return;
+function evaluateAndSendForTab(tab) {
+  if (!tab?.url) return;
+  if (!tab.url.startsWith("http://") && !tab.url.startsWith("https://")) return;
+
+  const domain = new URL(tab.url).hostname;
+
+  const isTimerApp =
+    (tab.url.includes("localhost") || tab.url.includes("127.0.0.1")) &&
+    tab.url.includes("/dashboard");
+
+  // Never pause while user is on the timer app tab.
+  if (isTimerApp) {
+    timerTabId = tab.id;
+    if (timerTabId) {
+      chrome.tabs.sendMessage(timerTabId, {
+        action: "updateTimerStatus",
+        shouldPause: false,
+        currentDomain: domain,
+      });
     }
-    //extract the domain from the tab's URL
-    const url = new URL(tab.url);
-    const domain = url.hostname;
+    return;
+  }
 
-    //get the whitelist and blacklist from storage
-    chrome.storage.sync.get(["whitelist", "blacklist"], (result) => {
-      const whitelist = result.whitelist || [];
-      const blacklist = result.blacklist || [];
+  chrome.storage.sync.get(["whitelist", "blacklist"], (result) => {
+    const whitelist = result.whitelist || [];
+    const blacklist = result.blacklist || [];
 
-      //check if the domain is blacklisted
-      const isBlacklisted = blacklist.some((item) => {
-        return domain.includes(item);
+    const isBlacklisted = blacklist.some((item) => domain.includes(item));
+    const isWhitelisted = whitelist.some((item) => domain.includes(item));
+
+    let shouldPauseTimer = false;
+
+    if (blacklist.length > 0 && isBlacklisted) {
+      shouldPauseTimer = true;
+    } else if (whitelist.length > 0 && !isWhitelisted) {
+      shouldPauseTimer = true;
+    }
+
+    if (timerTabId) {
+      chrome.tabs.sendMessage(timerTabId, {
+        action: "updateTimerStatus",
+        shouldPause: shouldPauseTimer,
+        currentDomain: domain,
       });
+    }
+  });
+}
 
-      //check if domain is whitelisted
-      const isWhitelisted = whitelist.some((item) => {
-        return domain.includes(item);
-      });
+//tab switched
+chrome.tabs.onActivated.addListener((activeInfo) => {
+  chrome.tabs.get(activeInfo.tabId, (tab) => {
+    evaluateAndSendForTab(tab);
+  });
+});
 
-      //variable determining if the timer should pause
-      let shouldPauseTimer = false;
+//new tab typed URL / navigation in the same tab
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (!tab.active) return;
+  if (changeInfo.url || changeInfo.status === "complete") {
+    evaluateAndSendForTab(tab);
+  }
+});
 
-      if (blacklist.length > 0 && isBlacklisted) {
-        shouldPauseTimer = true;
-      } else if (whitelist.length > 0 && !isWhitelisted) {
-        shouldPauseTimer = true;
-      }
+//evaluate current tab immediately if blacklist/whitelist changes
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== "sync") return;
+  if (!changes.whitelist && !changes.blacklist) return;
 
-      //send message to timer
-      if (timerTabId) {
-        chrome.tabs.sendMessage(timerTabId, {
-          action: "updateTimerStatus",
-          shouldPause: shouldPauseTimer,
-          currentDomain: domain,
-        });
-      }
-    });
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (tabs.length > 0) {
+      evaluateAndSendForTab(tabs[0]);
+    }
   });
 });
